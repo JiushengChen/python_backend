@@ -133,7 +133,8 @@ Stub::Instantiate(
     const std::string& shm_region_name, const std::string& model_path,
     const std::string& model_version, const std::string& triton_install_path,
     bi::managed_external_buffer::handle_t ipc_control_handle,
-    const std::string& model_instance_name)
+    const std::string& model_instance_name,
+    bool create_shm)
 {
   model_path_ = model_path;
   model_version_ = model_version;
@@ -144,7 +145,7 @@ Stub::Instantiate(
 
   try {
     shm_pool_ = std::make_unique<SharedMemoryManager>(
-        shm_region_name, shm_default_size, shm_growth_size, false /* create */);
+        shm_region_name, shm_default_size, shm_growth_size, create_shm);
 
     AllocatedSharedMemory<IPCControlShm> ipc_control =
         shm_pool_->Load<IPCControlShm>(ipc_control_handle);
@@ -941,10 +942,15 @@ main(int argc, char** argv)
 
   std::unique_ptr<Stub>& stub = Stub::GetOrCreateInstance();
   try {
+    bool create_shm = 0;
+    if (argc > 9) {
+        create_shm = std::stoi(argv[9]) > 0;
+    }
     stub->Instantiate(
         shm_growth_size, shm_default_size, shm_region_name, model_path,
         model_version, argv[6] /* triton install path */,
-        std::stoi(argv[7]) /* IPCControl handle */, model_instance_name);
+        std::stoi(argv[7]) /* IPCControl handle */, model_instance_name,
+        create_shm);
   }
   catch (const PythonBackendException& pb_exception) {
     LOG_INFO << "Failed to preinitialize Python stub: " << pb_exception.what();
