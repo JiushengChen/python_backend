@@ -58,7 +58,8 @@ class Stub {
       const std::string& shm_region_name, const std::string& model_path,
       const std::string& model_version, const std::string& triton_install_path,
       bi::managed_external_buffer::handle_t ipc_control_handle,
-      const std::string& model_instance_name);
+      const std::string& model_instance_name,
+      bool create_shm);
 
   /// Get the health of the stub process.
   bool& Health();
