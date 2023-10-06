@@ -36,7 +36,6 @@
 #include <boost/thread/thread_time.hpp>
 #include <cstdlib>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <thread>
 #include <unordered_map>
@@ -437,6 +436,7 @@ Stub::Initialize(bi::managed_external_buffer::handle_t map_handle)
      py::object out_file = py::cast("/.abo/offline/tmp/out");
      model_instance_.attr("process_a_file")(in_file, out_file, py::cast(offline_bsz_));
      LOG_INFO << "Offline workload successfully finished.";
+     exit(0);
   }
   else {
      LOG_INFO << "Go with online mode";
