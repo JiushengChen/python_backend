@@ -426,7 +426,7 @@ Stub::Initialize(bi::managed_external_buffer::handle_t map_handle)
   initialized_ = true;
 
   // Run offline workload
-  offline_func_defined = py::hasattr(model_instance_, "process_a_file");
+  bool offline_func_defined = py::hasattr(model_instance_, "process_a_file");
   LOG_INFO << "AB_OFFLINE_BATCH_SIZE=" << offline_bsz_
            << ", TritonPythonModel.process_a_file definition=" << offline_func_defined;
 
