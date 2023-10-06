@@ -62,7 +62,7 @@ class Stub {
                 offline_bsz_ = std::stoi(v);
             }
             catch(std::invalid_argument e) {
-                std::cout << "Bad value of AB_OFFLINE_BATCH_SIZE: " << v < std::endl;
+                std::cout << "Bad value of AB_OFFLINE_BATCH_SIZE: " << v << std::endl;
                 throw e;
             }
         }
