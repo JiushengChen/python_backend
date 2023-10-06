@@ -118,6 +118,12 @@ class Stub {
   bool IsDecoupled();
   ~Stub();
 
+
+  /// Get offline inference batch size
+  int GetOfflineBatchSize() const {
+    return offline_bsz_;
+  }
+
  private:
   bi::interprocess_mutex* stub_mutex_;
   bi::interprocess_condition* stub_cond_;

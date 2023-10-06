@@ -973,6 +973,9 @@ main(int argc, char** argv)
     exit(1);
   }
 
+  // Offline workload exit here
+  if (stub->GetOfflineBatchSize() > 0) return 0;
+
   // Start the Python Interpreter
   py::scoped_interpreter guard{};
   pid_t parent_pid = std::stoi(argv[5]);
