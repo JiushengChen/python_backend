@@ -33,6 +33,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <iostream>
+#include <stdexcept>
 #include "infer_request.h"
 #include "infer_response.h"
 #include "ipc_message.h"
@@ -53,14 +55,14 @@ class Stub {
         char* v;
         v = getenv("AB_OFFLINE_BATCH_SIZE");
         if(v == NULL) {
-            LOG_INFO << "AB_OFFLINE_BATCH_SIZE not defined, go with online mode.";
+            std::cout << "AB_OFFLINE_BATCH_SIZE not defined, go with online mode.\n";
         }
         else {
             try {
                 offline_bsz_ = std::stoi(v);
             }
             catch(std::invalid_argument e) {
-                LOG_INFO << "Bad value of AB_OFFLINE_BATCH_SIZE: " << v;
+                std::cout << "Bad value of AB_OFFLINE_BATCH_SIZE: " << v < std::endl;
                 throw e;
             }
         }
