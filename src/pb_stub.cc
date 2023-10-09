@@ -39,6 +39,7 @@
 #include <memory>
 #include <thread>
 #include <unordered_map>
+#include <fstream>
 #include "infer_response.h"
 #include "pb_error.h"
 #include "pb_map.h"
@@ -425,17 +426,125 @@ Stub::Initialize(bi::managed_external_buffer::handle_t map_handle)
   initialized_ = true;
 
   // Run offline workload
-  bool offline_func_defined = py::hasattr(model_instance_, "process_a_file");
-  LOG_INFO << "AB_OFFLINE_BATCH_SIZE=" << offline_bsz_
-           << ", TritonPythonModel.process_a_file definition=" << offline_func_defined;
+  offline_bsz_ = 0;
+  char* v;
+  v = getenv("AB_OFFLINE_BATCH_SIZE");
+  if(v != NULL) {
+      try {
+          offline_bsz_ = std::stoi(v);
+      }
+      catch(std::invalid_argument& e) {
+          throw PythonBackendException("Bad value of AB_OFFLINE_BATCH_SIZE: \""
+                  + std::string(v) + "\"");
+      }
+      v = getenv("AB_OFFLINE_INPUT_FILE_ADL_PATH");
+      if(v == NULL) {
+          throw PythonBackendException("AB_OFFLINE_INPUT_FILE_ADL_PATH not defined!");
+      }
+      input_file_adl_path_  = v;
+      if (input_file_adl_path_.empty() || input_file_adl_path_.rfind("adl://", 0) != 0) {
+          std::stringstream ss;
+          ss << "AB_OFFLINE_INPUT_FILE_ADL_PATH value 'i" << input_file_adl_path_
+             << "' is invalid! Valid value starts with 'adl://'.";
+         throw PythonBackendException(ss.str());
+      }
+
+      v = getenv("AB_OFFLINE_OUTPUT_FILE_ADL_PATH");
+      if(v == NULL) {
+          throw PythonBackendException("AB_OFFLINE_OUTPUT_FILE_ADL_PATH not defined!");
+      }
+      output_file_adl_path_  = v;
+      if (output_file_adl_path_.empty() || output_file_adl_path_.rfind("adl://", 0) != 0) {
+          std::stringstream ss;
+          ss << "AB_OFFLINE_OUTPUT_FILE_ADL_PATH value 'i" << output_file_adl_path_
+             << "' is invalid! Valid value starts with 'adl://'.";
+         throw PythonBackendException(ss.str());
+      }
+
+      std::string local_file_in = "/.abo/offline/tmp/in";
+      v = getenv("AB_OFFLINE_INPUT_FILE_LOCAL_PATH");
+      if (v != NULL) local_file_in = v;
+
+      std::string local_file_out  = "/.abo/offline/tmp/out";
+      v = getenv("AB_OFFLINE_OUTPUT_FILE_LOCAL_PATH");
+      if (v != NULL) local_file_out = v;
 
 
-  if (offline_bsz_ > 0 && offline_func_defined) {
-     LOG_INFO << "Go with offline mode";
-     py::object in_file = py::cast("/.abo/offline/tmp/in");
-     py::object out_file = py::cast("/.abo/offline/tmp/out");
-     model_instance_.attr("process_a_file")(in_file, out_file, py::cast(offline_bsz_));
-     LOG_INFO << "Offline workload successfully finished.";
+     bool offline_func_defined = py::hasattr(model_instance_, "process_a_file");
+     LOG_INFO << "AB_OFFLINE_BATCH_SIZE=" << offline_bsz_
+              << ", TritonPythonModel.process_a_file definition=" << offline_func_defined;
+
+
+     if (offline_bsz_ > 0 && offline_func_defined) {
+        LOG_INFO << "Go with offline mode";
+        int ret = system("ablog");
+        if (ret != 0) {
+           throw PythonBackendException("Run ablog error!");
+        }
+
+        // Download input file
+        std::stringstream ss;
+        LOG_INFO << "Start downloading input file " << input_file_adl_path_;
+        system("mkdir -p /.abo/offline/tmp/");
+        ss << "rm -f " << local_file_in << " " << local_file_out;
+        system(ss.str().c_str());
+
+        ss.str("");
+        ss.clear();
+        ss << "cpps -AdlPath " << "\"" << input_file_adl_path_
+           << "\"" << " -LocalPath /.abo/offline/tmp/in -Binary";
+        ret = system(ss.str().c_str());
+        if (ret != 0) {
+           ss.str("");
+           ss.clear();
+           ss << "Failed to download file \"" << input_file_adl_path_ << "\"!";
+           throw PythonBackendException(ss.str());
+        }
+
+        // check input file size
+        std::ifstream f(local_file_in, std::ios::binary | std::ios::ate); // Open at the end
+        if (!f.is_open()) {
+           throw PythonBackendException("Error opening local file " + local_file_in);
+        }
+        std::streampos filesize = f.tellg();
+        if (filesize == -1) {
+           throw PythonBackendException("Error getting size of local file " + local_file_in);
+        }
+        LOG_INFO << "Input file " << input_file_adl_path_ << " has " << filesize  << " bytes.";
+
+        // Call python code to process file
+        LOG_INFO << "Start processing file " << input_file_adl_path_;
+        py::object in_file = py::cast(local_file_in);
+        py::object out_file = py::cast(local_file_out);
+        model_instance_.attr("process_a_file")(in_file, out_file, py::cast(offline_bsz_));
+
+        // check output file size
+        std::ifstream f2(local_file_out, std::ios::binary | std::ios::ate); // Open at the end
+        if (!f2.is_open()) {
+           throw PythonBackendException("Error opening local file " + local_file_out);
+        }
+        filesize = f2.tellg();
+        if (filesize == -1) {
+           throw PythonBackendException("Error getting size of file " + local_file_out);
+        }
+
+        // Upload output file
+        LOG_INFO << "Start uploading " << filesize
+                 << " bytes to output file " << output_file_adl_path_;
+        ss.str("");
+        ss.clear();
+        ss << "cpps -AdlPath " << "\"" << output_file_adl_path_
+           << "\"" << " -LocalPath /.abo/offline/tmp/out -Upload -Binary";
+        ret = system(ss.str().c_str());
+        if (ret != 0) {
+           ss.str("");
+           ss.clear();
+           ss << "Failed to upload to file \"" << output_file_adl_path_ << "\"!";
+           throw PythonBackendException(ss.str());
+        }
+
+        LOG_INFO << "Offline workload successfully finished.";
+     }
   }
   else {
      LOG_INFO << "Go with online mode";

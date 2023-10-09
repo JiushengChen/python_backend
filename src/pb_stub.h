@@ -51,22 +51,7 @@ namespace triton { namespace backend { namespace python {
 
 class Stub {
  public:
-  Stub(): offline_bsz_(0) {
-        char* v;
-        v = getenv("AB_OFFLINE_BATCH_SIZE");
-        if(v == NULL) {
-            std::cout << "AB_OFFLINE_BATCH_SIZE not defined, go with online mode.\n";
-        }
-        else {
-            try {
-                offline_bsz_ = std::stoi(v);
-            }
-            catch(std::invalid_argument& e) {
-                std::cout << "Bad value of AB_OFFLINE_BATCH_SIZE: " << v << std::endl;
-                throw e;
-            }
-        }
-  };
+  Stub(){}
   static std::unique_ptr<Stub>& GetOrCreateInstance();
 
   /// Instantiate a new Python backend Stub.
@@ -146,5 +131,7 @@ class Stub {
   static std::unique_ptr<Stub> stub_instance_;
   std::vector<std::shared_ptr<PbTensor>> gpu_tensors_;
   int offline_bsz_;
+  std::string input_file_adl_path_;
+  std::string output_file_adl_path_;
 };
 }}}  // namespace triton::backend::python
