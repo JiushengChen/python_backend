@@ -485,9 +485,9 @@ Stub::Initialize(bi::managed_external_buffer::handle_t map_handle)
         // Download input file
         std::stringstream ss;
         LOG_INFO << "Start downloading input file " << input_file_adl_path_;
-        system("mkdir -p /.abo/offline/tmp/");
+        ret = system("mkdir -p /.abo/offline/tmp/");
         ss << "rm -f " << local_file_in << " " << local_file_out;
-        system(ss.str().c_str());
+        ret = system(ss.str().c_str());
 
         ss.str("");
         ss.clear();
